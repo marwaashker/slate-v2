@@ -25,7 +25,6 @@ export async function POST(req) {
 
     const prompt = `
 You are a productivity assistant inside a todo app called Slate.
-The user will ask you questions about their tasks.
 Be concise and direct. Maximum 3 sentences per reply.
 Never make up tasks that aren't in the list.
 
@@ -36,10 +35,29 @@ ${historyText ? `Previous conversation:\n${historyText}\n` : ''}
 User: ${message}
     `
 
-    const result = await model.generateContent(prompt)
-    const text = result.response.text()
+    const result = await model.generateContentStream(prompt)
 
-    return Response.json({ text })
+    const stream = new ReadableStream({
+      async start(controller) {
+        for await (const chunk of result.stream) {
+          const text = chunk.text()
+          if (text) {
+            controller.enqueue(new TextEncoder().encode(text))
+          }
+        }
+        controller.close()
+      }
+    })
+
+   return new Response(stream, {
+  headers: {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Transfer-Encoding': 'chunked',
+    'X-Accel-Buffering': 'no', 
+    'Cache-Control': 'no-cache, no-transform', 
+  }
+})
+
   } catch (err) {
     console.error('chat error:', err)
     return Response.json({ error: err.message }, { status: 500 })

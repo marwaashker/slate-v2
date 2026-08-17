@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, startTransition } from 'react'
 import { fetchChat } from '../lib/api'
 
 
@@ -26,7 +26,9 @@ function ChatPanel({ columns, isOpen, onClose }) {
     async function handleSubmit(e) {
         e.preventDefault()
         if (!input.trim() || loading) return;
-        const now = Date.now()
+        const now = Date.now();
+
+
         if (now - lastCall < COOLDOWN_MS) {
             setMessages(prev => [...prev, {
                 id: Date.now(),
@@ -37,32 +39,50 @@ function ChatPanel({ columns, isOpen, onClose }) {
         }
         setLastCall(now);
 
-        const userMessage = input.trim()
-        setInput('')
-
         // add user message immediately
+        const userMessage = input.trim()
+        setInput('');
         const userMsg = { id: Date.now(), role: 'user', text: userMessage }
         setMessages(prev => [...prev, userMsg])
-        setLoading(true)
+        const assistantId = Date.now() + 1;
+        const assistantMsg = {
+            id: assistantId,
+            role: 'assistant',
+            text: ''
+        }
+
+        setMessages(prev => [...prev, assistantMsg])
+
+
+
+
+
+        // add empty assistant message that we'll fill in chunk by chunk
 
         try {
             // pass history without the welcome message
-            const history = messages.slice(1)
-            const reply = await fetchChat(columns, history, userMessage)
 
-            setMessages(prev => [...prev, {
-                id: Date.now() + 1,
-                role: 'assistant',
-                text: reply,
-            }])
+            const history = messages.slice(1)
+            await fetchChat(columns, history, userMessage, (chunk) => {
+                startTransition(() => {
+                    setMessages(prev => prev.map(msg =>
+                        msg.id === assistantId
+                            ? { ...msg, text: msg.text + chunk }
+                            : msg
+                    ))
+                })
+            })
+
         } catch (err) {
-            setMessages(prev => [...prev, {
-                id: Date.now() + 1,
-                role: 'assistant',
-                text: err.message.includes('Too many requests')
-                    ? 'Too many requests — wait a moment and try again.'
-                    : 'Something went wrong — try again.',
-            }])
+            setMessages(prev => prev.map(msg =>
+                msg.id === assistantId
+                    ? {
+                        ...msg, text: err.message.includes('Too many requests')
+                            ? 'Too many requests — wait a moment.'
+                            : 'Something went wrong — try again.'
+                    }
+                    : msg
+            ))
         } finally {
             setLoading(false)
         }

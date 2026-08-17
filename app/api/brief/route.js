@@ -3,32 +3,50 @@ import { GoogleGenerativeAI } from "@google/generative-ai"
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
 
 export async function POST(req) {
-    try {
-        const { tasks } = await req.json()
+  try {
+    const { tasks } = await req.json()
 
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
 
-        const prompt = `
+    const prompt = `
 You are a productivity assistant inside a todo app called Slate.
 The user gives you their task list for today.
 Write a short morning briefing — maximum 3 sentences.
 Be direct, warm, and specific about their actual tasks.
 Do not use bullet points. Do not say "Here is your briefing".
-Just write the briefing naturally as if talking to them.
+Just write naturally as if talking to them.
 
 My tasks for today:
 ${tasks.length === 0
-                ? 'No tasks yet.'
-                : tasks.map(t => `- ${t.label} (${t.priority} priority${t.done ? ', done' : ''})`).join('\n')
-            }
+  ? 'No tasks yet.'
+  : tasks.map(t => `- ${t.label} (${t.priority} priority${t.done ? ', done' : ''})`).join('\n')
+}
     `
 
-        const result = await model.generateContent(prompt)
-        const text = result.response.text()
+    const result = await model.generateContentStream(prompt)
 
-        return Response.json({ text })
-    } catch (err) {
-        console.error('brief error:', err)
-        return Response.json({ error: err.message }, { status: 500 })
-    }
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        for await (const chunk of result.stream) {
+          const text = chunk.text()
+          if (text) {
+            controller.enqueue(new TextEncoder().encode(text))
+          }
+        }
+        controller.close()
+      }
+    })
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Transfer-Encoding': 'chunked',
+      }
+    })
+
+  } catch (err) {
+    console.error('brief error:', err)
+    return Response.json({ error: err.message }, { status: 500 })
+  }
 }

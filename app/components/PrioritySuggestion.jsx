@@ -24,9 +24,12 @@ export function PrioritySuggestion({ todayTasks }) {
 
 
         try {
-            const result = await fetchPriority(todayTasks);
-            setSuggestions(result);
+            // const result = await fetchPriority(todayTasks);
+            // setSuggestions(result);
 
+            await fetchPriority(todayTasks, (chunk) => {
+                setSuggestions(prev => prev + chunk)
+            })
 
         } catch (err) {
             setError(
@@ -76,15 +79,14 @@ export function PrioritySuggestion({ todayTasks }) {
                         <p className="priority-empty">No tasks to suggest — add some tasks first.</p>
                     )}
 
-                    {!loading && !error && suggestions.map((s, i) => (
-                        <div key={i} className="priority-item">
-                            <span className="priority-num">{i + 1}</span>
-                            <div>
-                                <p className="priority-label">{s.label}</p>
-                                <p className="priority-reason">{s.reason}</p>
-                            </div>
-                        </div>
-                    ))}
+
+
+                    {!error && suggestions && (
+                        <p className="priority-reason" style={{ padding: '12px 14px', lineHeight: '1.7' }}>
+                            {suggestions}
+                            {loading && <span className="cursor">|</span>}
+                        </p>
+                    )}
                 </div>
 
             )}

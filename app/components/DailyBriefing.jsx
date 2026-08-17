@@ -26,8 +26,9 @@ function DailyBriefing({ todayTasks, setBriefOpen, briefOpen, briefing, loading,
                 )}
                 {error && <p className="briefing-error">{error}</p>}
                 {!loading && !error && briefOpen && briefing && (
-                    <p className="briefing-text">{briefing}</p>
+                    <p className="briefing-text">{briefing} <span className="cursor">|</span> </p>
                 )}
+                
             </div>
         </div>
     )

@@ -1,16 +1,34 @@
 // lib/api.js
 // all frontend AI calls go through here
-// these hit YOUR server, not Gemini directly
+// these hit the server, not Gemini directly
 
-export async function fetchDailyBriefing(tasks) {
+export async function fetchDailyBriefing(tasks, onChunk) {
   const res = await fetch('/api/brief', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ tasks }),
   })
-  const data = await res.json()
-  if (data.error) throw new Error(data.error)
-  return data.text
+
+
+  if (!res.ok) throw new Error('Brief request failed')
+  if (!res.body) throw new Error('No response body')
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let fullText = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    fullText += decoder.decode(value, { stream: true })
+  }
+
+  const words = fullText.split(' ');
+
+  for (const word of words) {
+    onChunk(word + ' ')
+    await new Promise(resolve => setTimeout(resolve, 30))
+  }
 }
 
 export async function fetchParseTask(input) {
@@ -34,15 +52,32 @@ export async function fetchParseTask(input) {
   return data // { label, priority, day }
 }
 
-export async function fetchPriority(tasks) {
+export async function fetchPriority(tasks, onChunk) {
   const res = await fetch('/api/priority', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ tasks }),
   })
-  const data = await res.json()
-  if (data.error) throw new Error(data.error)
-  return data // array of { label, reason }
+
+  if (!res.ok) throw new Error('Brief request failed')
+  if (!res.body) throw new Error('No response body')
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let fullText = ''
+
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    fullText += decoder.decode(value, { stream: true })
+  }
+
+  const words = fullText.split(' ')
+  for (const word of words) {
+    onChunk(word + ' ')
+    await new Promise(resolve => setTimeout(resolve, 30))
+  }
+
 }
 
 export async function fetchSubtasks(label) {
@@ -53,16 +88,36 @@ export async function fetchSubtasks(label) {
   })
   const data = await res.json()
   if (data.error) throw new Error(data.error)
-  return data // array of strings
+  return data
 }
 
-export async function fetchChat(columns, history, message) {
+
+
+export async function fetchChat(columns, history, message, onChunk) {
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ columns, history, message }),
   })
-  const data = await res.json()
-  if (data.error) throw new Error(data.error)
-  return data.text
+
+  if (!res.ok) throw new Error('Chat request failed')
+  if (!res.body) throw new Error('No response body')
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let fullText = ''
+
+  // collect all chunks first
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    fullText += decoder.decode(value, { stream: true })
+  }
+
+  // then simulate word by word
+  const words = fullText.split(' ')
+  for (const word of words) {
+    onChunk(word + ' ')
+    await new Promise(resolve => setTimeout(resolve, 30))
+  }
 }

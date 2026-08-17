@@ -7,7 +7,7 @@ export async function POST(req) {
     const { tasks } = await req.json()
 
     if (!tasks || tasks.length === 0) {
-      return Response.json([])
+      return Response.json({ error: 'No tasks' }, { status: 400 })
     }
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
@@ -17,31 +17,42 @@ export async function POST(req) {
       .map(t => `- ${t.label} (${t.priority} priority)`)
       .join('\n')
 
-    if (!taskList) return Response.json([])
+    if (!taskList) {
+      return Response.json({ error: 'All tasks done' }, { status: 400 })
+    }
 
     const prompt = `
 You are a productivity assistant inside a todo app called Slate.
-Return ONLY a valid JSON array — no explanation, no markdown, no backticks.
-Pick the top 3 tasks to focus on today.
-Use exactly this shape:
-[
-  { "label": "task title exactly as given", "reason": "one short sentence why" },
-  { "label": "task title exactly as given", "reason": "one short sentence why" },
-  { "label": "task title exactly as given", "reason": "one short sentence why" }
-]
-If fewer than 3 tasks return fewer items.
-If no tasks return [].
+The user wants to know what to focus on today.
+Write 2-3 sentences max. Be direct and specific about their actual tasks.
+Mention the top 2-3 tasks by name and briefly why.
+Do not use bullet points or numbered lists. Write naturally.
 
 My tasks for today:
 ${taskList}
     `
 
-    const result = await model.generateContent(prompt)
-    const raw = result.response.text()
-    const cleaned = raw.replace(/```json|```/g, '').trim()
-    const parsed = JSON.parse(cleaned)
+    const result = await model.generateContentStream(prompt)
 
-    return Response.json(parsed)
+    const stream = new ReadableStream({
+      async start(controller) {
+        for await (const chunk of result.stream) {
+          const text = chunk.text()
+          if (text) {
+            controller.enqueue(new TextEncoder().encode(text))
+          }
+        }
+        controller.close()
+      }
+    })
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Transfer-Encoding': 'chunked',
+      }
+    })
+
   } catch (err) {
     console.error('priority error:', err)
     return Response.json({ error: err.message }, { status: 500 })

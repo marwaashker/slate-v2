@@ -39,24 +39,24 @@ export default function Home() {
     setMounted(true)
   }, [])
 
-  async function fetchBriefing() {
+  async function fetchBriefingData() {
     setBriefOpen(p => !p)
     if (loaded) return // don't call twice
     setLoading(true)
     setError(null)
-    try {
-      const text = await fetchDailyBriefing(todayTasks)
-      setBriefing(text)
+   try {
+      await fetchDailyBriefing(todayTasks, (chunk) => {
+        // this runs every time a new chunk arrives
+        // we append it to the existing text
+        setBriefing(prev => prev + chunk)
+      })
       setLoaded(true)
     } catch (err) {
-      setError(
-        err.message.includes('Too many requests')
-          ? 'Too many requests — try again in a moment'
-          : 'Could not load briefing'
-      )
+      setError('Could not load briefing — try again')
+      console.error(err)
     } finally {
-      setLoading(false);
-      setBriefOpen(!briefOpen)
+      setLoading(false)
+      // setBriefOpen(!briefOpen) 
     }
   }
 
@@ -268,7 +268,7 @@ export default function Home() {
         <div className="body-area">
           {/* brief toggle button on the left */}
           <div className="brief-sidebar">
-            <button className="brief-btn" onClick={fetchBriefing}>
+            <button className="brief-btn" onClick={fetchBriefingData}>
               ≡ brief
             </button>
           </div>

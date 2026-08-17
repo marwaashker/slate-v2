@@ -1489,3 +1489,15 @@ body {
     font-size: 18px;
   }
 }
+
+.cursor {
+  /* display: inline-block; */
+  animation: blink 1s step-end infinite;
+  margin-left: 2px;
+  color: #639922;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
