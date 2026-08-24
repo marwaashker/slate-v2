@@ -1,8 +1,9 @@
+@import "tailwindcss";
+
 *,
 *::before,
 *::after {
   box-sizing: border-box;
-  margin: 0;
   padding: 0;
 }
 
@@ -56,6 +57,7 @@ body {
   letter-spacing: -0.02em;
   text-align: center;
   line-height: 1;
+  font-weight: bold;
 }
 
 .top-actions {
@@ -174,27 +176,16 @@ body {
 }
 
 /* ─── BOARD WRAP ────────────────────────────────────────── */
-/* FIX 1 — clips the panel and adds right fade hint */
+
 .board-wrap {
   flex: 1;
-  padding: 16px 0 6px 2px;
-  /* overflow: hidden; */
+  padding: 49px 0 6px 2px;
   position: relative;
   min-width: 0;
-  /* prevents flex overflow */
 }
 
-/* right fade — hints there is more to scroll */
+
 .board-wrap::after {
-  /* content: '';
-  position: absolute;
-  top: 16px;
-  right: 0;
-  width: 80px;
-  height: calc(100% - 32px);
-  background: linear-gradient(to right, transparent, var(--bg));
-  pointer-events: none;
-  z-index: 2; */
   display: none;
 }
 
@@ -202,40 +193,23 @@ body {
 .board-scroll-wrap {
   width: 100%;
   height: 100%;
-  /* overflow-x: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.12) transparent; */
   overflow-x: auto;
   overflow-y: visible;
   scrollbar-width: none;
-  /* hide scrollbar */
 }
 
 .board-scroll-wrap::-webkit-scrollbar {
   display: none;
-  /* hide scrollbar */
 }
 
-/* .board-scroll-wrap::-webkit-scrollbar { height: 4px; }
-.board-scroll-wrap::-webkit-scrollbar-track { background: transparent; }
-.board-scroll-wrap::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.12);
-  border-radius: 99px;
-} */
 
-/* ─── BOARD PANEL — white container holding all columns ─── */
-/* FIX 1 — extends beyond screen so it feels scrollable */
 .board-panel {
   background: #ffffff;
   border-radius: 16px 0 0 16px;
-  /* only round left side — bleeds right */
   padding: 45px;
   padding-right: 0px;
-  /* extra right padding for scroll feel */
   display: flex;
   gap: 14px;
-  /* min-height: calc(100vh - 200px); */
-  /* width: max-content;  */
 }
 
 /* ─── BOARD GRID ────────────────────────────────────────── */
@@ -245,9 +219,8 @@ body {
 }
 
 /* ─── COLUMN ────────────────────────────────────────────── */
-/* FIX 2 — all columns same style, no today differentiation */
+
 .column {
-  /*   /* background: #f7f6f3; */
   background: #e8e8e452;
   border: 1px solid rgba(0, 0, 0, 0.07);
   border-radius: 12px;
@@ -691,6 +664,7 @@ body {
   color: #70d683;
   cursor: pointer;
   transition: background 0.15s, box-shadow 0.15s;
+  margin-top: 10px
 }
 
 
@@ -998,9 +972,10 @@ body {
   border-color: #1a1a18;
   color: #1a1a18;
 }
-.error-msg{
+
+.error-msg {
   font-size: 10px;
-  color:red
+  color: red
 }
 
 /* ─── CHAT ──────────────────────────────────────────────── */
@@ -1491,13 +1466,26 @@ body {
 }
 
 .cursor {
-  /* display: inline-block; */
+  display: inline-block;
   animation: blink 1s step-end infinite;
   margin-left: 2px;
   color: #639922;
 }
 
 @keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
+}
+
+.signin-btn {
+  position: absolute;
+  top: 30px;
+  right: 40px;
 }
