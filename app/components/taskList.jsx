@@ -2,9 +2,8 @@ import TaskItem from "./taskItem";
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 
-export default function TaskList({ onDelete, tasks, onToggle, colId, onPriority, onAddSubtasks }) {
+export default function TaskList({ onDelete, tasks, onToggle, colId, onPriority, onAddSubtasks ,filteredTasks}) {
     const { setNodeRef, isOver } = useDroppable({ id: colId });
-
 
     return (
         <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
@@ -17,7 +16,7 @@ export default function TaskList({ onDelete, tasks, onToggle, colId, onPriority,
                 }}
             >
 
-                {tasks.length ? tasks.map((item) =>
+                {filteredTasks.length ? filteredTasks.map((item) =>
                     <ul key={item.id}>
                         <TaskItem item={item} onDelete={onDelete} onToggle={onToggle} onAddSubtasks={onAddSubtasks} onPriority={onPriority} />
                     </ul>

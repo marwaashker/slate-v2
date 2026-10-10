@@ -1489,3 +1489,21 @@ body {
   top: 30px;
   right: 40px;
 }
+
+.priority-filter {
+  cursor: pointer;
+  background: #fff;
+  color: #6b6b66;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 1px;
+  font-size: 14px;
+  display: block;
+  margin-top: 6px;
+
+}
+
+.priority-filter:focus {
+  outline: none;
+  border-color: #70d683;
+}
