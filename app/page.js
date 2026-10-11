@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useOptimistic, startTransition } from 'react'
 import { UserButton } from '@clerk/nextjs'
 import { useSupabase } from './hooks/useSupabase'
 import { useUser } from '@clerk/nextjs'
@@ -13,7 +13,9 @@ import {
   useSensors,
   closestCorners,
 } from '@dnd-kit/core'
-import { arrayMove } from '@dnd-kit/sortable'
+import { arrayMove } from '@dnd-kit/sortable';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { buildWeek } from '../utils/buildWeeks';
 import Board from './components/board';
 import ChatPanel from './components/ChatPanel';
@@ -39,6 +41,8 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const supabase = useSupabase();
   const { user } = useUser();
+
+  console.log("user", user);
 
 
 
@@ -92,6 +96,19 @@ export default function Home() {
   })
 
 
+
+
+  const [optimisticColumns, applyOptimisticColumns] = useOptimistic(columns, (current, action) => {
+    if (action.type === 'add') { return current.map(col => col.id === action.id ? { ...col, tasks: [...col.tasks, action.task] } : col) }
+    if (action.type === 'toggle') { return current.map(col => ({ ...col, task: col.tasks.map((t) => t.id === action.taskId ? { ...t, done: !t.done } : t) })) }
+    if (action.type === 'delete') { return current.map(col => ({ ...col, tasks: col.tasks.filter(t => t.id !== action.taskId) })) }
+    if (action.type === 'priority') { return current.map(col => ({ ...col, tasks: col.tasks.map(t => t.id === action.taskId ? { ...t, priority: action.priority } : t) })) }
+
+    return current;
+  });
+
+
+
   useEffect(() => {
     async function loadTasks() {
       if (!user) return
@@ -104,10 +121,11 @@ export default function Home() {
 
       if (error) {
         console.error('Error loading tasks:', error)
+        toast.error('Could not load the task')
+
         return
       }
 
-      // distribute tasks into their correct columns
       setColumns(prev => prev.map(col => ({
         ...col,
         tasks: data
@@ -122,107 +140,142 @@ export default function Home() {
     }
 
     loadTasks()
+
   }, [user?.id])
 
 
-  const todayTasks = columns.find(col => col.id === 'day-0').tasks || [];
+  const todayTasks = optimisticColumns.find(col => col.id === 'day-0').tasks || [];
 
 
 
   async function AddTodo(colId, label, priority = 'medium') {
     if (!label || !label.trim()) return;
     if (!user) return;
-
-    const newTask = {
-      label: label.trim(),
-      priority,
-      done: false,
-      column_id: colId,
-      user_id: user.id,
-      position: 0,
-    }
-    const { data, error } = await supabase
-      .from('tasks')
-      .insert(newTask)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Error adding task:', error)
-      return
-    }
+    startTransition(async () => {
+      const newTask = {
+        label: label.trim(),
+        priority,
+        done: false,
+        column_id: colId,
+        user_id: user.id,
+        position: 0,
+      }
+      applyOptimisticColumns({ type: 'add', colId, task: { id: `opti-${Date.now()}`, newTask } })
 
 
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert(newTask)
+        .select()
+        .single()
+      if (error) {
+        console.error('Error toggling task:', error)
+        toast.error('Could not update the task')
 
-    setColumns(prev => prev.map(col =>
-      col.id === colId
-        ? {
-          ...col, tasks: [{
-            id: data.id,
-            label: data.label,
-            priority: data.priority,
-            done: data.done,
-          }, ...col.tasks]
-        }
-        : col
-    ))
+        return
+      }
+
+      setColumns(prev => prev.map(col =>
+        col.id === colId
+          ? {
+            ...col, tasks: [{
+              id: data.id,
+              label: data.label,
+              priority: data.priority,
+              done: data.done,
+            }, ...col.tasks]
+          }
+          : col
+      ))
+
+
+
+
+    })
   }
 
 
   async function deleteTodo(taskId) {
-    const { error } = await supabase
-      .from('tasks')
-      .delete()
-      .eq('id', taskId)
 
-    if (error) {
-      console.error('Error deleting task:', error)
-      return
-    }
+    startTransition(async () => {
+      applyOptimisticColumns({ type: 'delete', taskId })
 
-    setColumns(prev => prev.map(col => ({
-      ...col,
-      tasks: col.tasks.filter(t => t.id !== taskId)
-    })))
+
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) {
+        console.error('Error toggling task:', error)
+        toast.error('Could not update the task')
+
+        return
+      }
+
+      setColumns(prev => prev.map(col => ({
+        ...col,
+        tasks: col.tasks.filter(t => t.id !== taskId)
+      })))
+
+    })
+
   }
 
 
-  async function toggleDone(taskId) {
+
+  function toggleDone(taskId) {
     const task = columns
       .flatMap(col => col.tasks)
       .find(t => t.id === taskId)
 
-    if (!task) return
+    if (!task) return;
+    startTransition(async () => {
 
-    const { error } = await supabase
-      .from('tasks')
-      .update({ done: !task.done })
-      .eq('id', taskId)
+      applyOptimisticColumns({ type: 'toggle', taskId })
 
-    if (error) {
-      console.error('Error toggling task:', error)
-      return
-    }
-    setColumns(prev => prev.map(col => ({
-      ...col,
-      tasks: col.tasks.map(t => t.id === taskId ? { ...t, done: !t.done } : t)
-    })))
+      const { error } = await supabase
+        .from('tasks')
+        .update({ done: !task.done })
+        .eq('id', taskId)
+
+      if (error) {
+        console.error('Error toggling task:', error)
+        toast.error('Could not update the task')
+
+        return
+      }
+      setColumns(prev => prev.map(col => ({
+        ...col,
+        tasks: col.tasks.map(t => t.id === taskId ? { ...t, done: !task.done } : t)
+      })))
+
+    })
+
+
   }
 
   async function onPriority(taskId, priority) {
-    const { error } = await supabase
-      .from('tasks')
-      .update({ priority })
-      .eq('id', taskId)
 
-    if (error) {
-      console.error('Error updating priority:', error)
-      return
-    }
-    setColumns(prev => prev.map(col => ({
-      ...col,
-      tasks: col.tasks.map(t => t.id === taskId ? { ...t, priority } : t)
-    })))
+    startTransition(async () => {
+      applyOptimisticColumns({ type: 'priority', taskId, priority })
+
+      const { error } = await supabase
+        .from('tasks')
+        .update({ priority })
+        .eq('id', taskId)
+
+      if (error) {
+        console.error('Error updating priority:', error)
+        toast.error('Could not update the task')
+
+        return
+      }
+      setColumns(prev => prev.map(col => ({
+        ...col,
+        tasks: col.tasks.map(t => t.id === taskId ? { ...t, priority } : t)
+      })))
+    })
   }
 
 
@@ -414,7 +467,7 @@ export default function Home() {
             <div className="board-scroll-wrap" >
               <div className="board-panel">
                 <Board
-                  columns={columns}
+                  columns={optimisticColumns}
                   onAdd={AddTodo}
                   onToggle={toggleDone}
                   onDelete={deleteTodo}
@@ -435,7 +488,7 @@ export default function Home() {
       <button className="chat-fab" onClick={() => setIsChatOpen(true)}>✦</button>
 
       <ChatPanel
-        columns={columns}
+        columns={optimisticColumns}
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
       />
@@ -450,6 +503,8 @@ export default function Home() {
       <footer className="footer">
         <span>Made by <span>Marwa Elashker</span> </span>
       </footer>
+
+      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme="light" />
     </DndContext >
   )
 
